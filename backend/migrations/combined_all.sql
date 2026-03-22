@@ -238,7 +238,9 @@ CREATE TABLE IF NOT EXISTS assignment_submissions (
 -- Fallback: if 'submissions' table exists from old migration, rename it
 DO $$ BEGIN
     ALTER TABLE submissions RENAME TO assignment_submissions;
-EXCEPTION WHEN undefined_table THEN NULL;
+EXCEPTION
+    WHEN undefined_table THEN NULL;
+    WHEN duplicate_table THEN NULL;
 END $$;
 
 CREATE TABLE IF NOT EXISTS submission_files (

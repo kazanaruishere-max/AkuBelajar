@@ -1,151 +1,92 @@
 'use client';
 
-import { useAuthStore } from '@/lib/store/authStore';
+import React, { useState, useEffect, useCallback } from 'react';
+import { api } from '@/lib/api/client';
+
+interface AdminStats { total_users: number; total_teachers: number; total_students: number; total_classes: number; total_subjects: number; }
+interface TeacherStats { total_assignments: number; total_quizzes: number; pending_submissions: number; }
+interface StudentStats { total_assignments: number; total_quizzes: number; average_score: number; unread_notifications: number; }
 
 export default function DashboardPage() {
-  const { user } = useAuthStore();
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState('');
 
-  const roleGreeting: Record<string, string> = {
-    super_admin: 'Admin',
-    teacher: 'Bapak/Ibu Guru',
-    class_leader: 'Ketua Kelas',
-    student: 'Siswa',
-  };
+  const fetchStats = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await api.get('/api/v1/dashboard/stats');
+      const data = (res.data as any).data;
+      setStats(data);
+      setRole(data?.role || '');
+    } catch { /* ignore */ } finally { setLoading(false); }
+  }, []);
 
-  const greeting = roleGreeting[user?.role || 'student'] || 'User';
+  useEffect(() => { fetchStats(); }, [fetchStats]);
+
+  if (loading) return <div style={{ padding: 32, color: '#94A3B8' }}>Memuat dashboard...</div>;
 
   return (
-    <div>
-      <div className="dashboard-welcome">
-        <h1>Selamat Datang, {greeting}! 👋</h1>
-        <p>Berikut ringkasan aktivitas Anda hari ini.</p>
-      </div>
+    <div style={{ padding: 32 }}>
+      <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 8, background: 'linear-gradient(135deg,#E2E8F0,#94A3B8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+        Dashboard
+      </h1>
+      <p style={{ fontSize: 14, color: '#64748B', marginBottom: 32 }}>
+        Selamat datang kembali! 👋
+      </p>
 
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon blue">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-            </svg>
-          </div>
-          <div className="stat-info">
-            <span className="stat-value">—</span>
-            <span className="stat-label">Tugas Aktif</span>
-          </div>
+      {role === 'super_admin' && <AdminDashboard stats={stats as AdminStats} />}
+      {role === 'teacher' && <TeacherDashboard stats={stats as TeacherStats} />}
+      {(role === 'student' || role === 'class_leader') && <StudentDashboard stats={stats as StudentStats} />}
+    </div>
+  );
+}
+
+function AdminDashboard({ stats }: { stats: AdminStats }) {
+  const cards = [
+    { label: 'Total Pengguna', value: stats.total_users, icon: '👥', color: '#3B82F6' },
+    { label: 'Guru', value: stats.total_teachers, icon: '👨‍🏫', color: '#22C55E' },
+    { label: 'Siswa', value: stats.total_students, icon: '👩‍🎓', color: '#A78BFA' },
+    { label: 'Kelas', value: stats.total_classes, icon: '🏫', color: '#F59E0B' },
+    { label: 'Mata Pelajaran', value: stats.total_subjects, icon: '📚', color: '#EC4899' },
+  ];
+  return <StatsGrid cards={cards} />;
+}
+
+function TeacherDashboard({ stats }: { stats: TeacherStats }) {
+  const cards = [
+    { label: 'Tugas Dibuat', value: stats.total_assignments, icon: '📝', color: '#3B82F6' },
+    { label: 'Kuis Dibuat', value: stats.total_quizzes, icon: '❓', color: '#A78BFA' },
+    { label: 'Submission Menunggu', value: stats.pending_submissions, icon: '⏳', color: '#F59E0B' },
+  ];
+  return <StatsGrid cards={cards} />;
+}
+
+function StudentDashboard({ stats }: { stats: StudentStats }) {
+  const scoreColor = stats.average_score >= 80 ? '#22C55E' : stats.average_score >= 60 ? '#F59E0B' : '#EF4444';
+  const cards = [
+    { label: 'Tugas Dikerjakan', value: stats.total_assignments, icon: '📝', color: '#3B82F6' },
+    { label: 'Kuis Dikerjakan', value: stats.total_quizzes, icon: '❓', color: '#A78BFA' },
+    { label: 'Rata-rata Nilai', value: stats.average_score, icon: '📊', color: scoreColor },
+    { label: 'Notifikasi Baru', value: stats.unread_notifications, icon: '🔔', color: '#EF4444' },
+  ];
+  return <StatsGrid cards={cards} />;
+}
+
+function StatsGrid({ cards }: { cards: { label: string; value: number; icon: string; color: string }[] }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 20 }}>
+      {cards.map((c) => (
+        <div key={c.label} style={{
+          background: 'rgba(15,23,42,0.6)', borderRadius: 20, padding: 28,
+          border: '1px solid rgba(148,163,184,0.08)', position: 'relative', overflow: 'hidden',
+        }}>
+          <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%', background: `${c.color}10` }} />
+          <div style={{ fontSize: 28, marginBottom: 12 }}>{c.icon}</div>
+          <p style={{ fontSize: 42, fontWeight: 800, color: c.color, lineHeight: 1 }}>{c.value}</p>
+          <p style={{ fontSize: 13, color: '#94A3B8', marginTop: 8, fontWeight: 500 }}>{c.label}</p>
         </div>
-
-        <div className="stat-card">
-          <div className="stat-icon green">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="9 11 12 14 22 4"/>
-              <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
-            </svg>
-          </div>
-          <div className="stat-info">
-            <span className="stat-value">—</span>
-            <span className="stat-label">Absensi Hari Ini</span>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon purple">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/>
-              <line x1="12" y1="17" x2="12.01" y2="17"/>
-            </svg>
-          </div>
-          <div className="stat-info">
-            <span className="stat-value">—</span>
-            <span className="stat-label">Kuis Mendatang</span>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon amber">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="20" x2="18" y2="10"/>
-              <line x1="12" y1="20" x2="12" y2="4"/>
-              <line x1="6" y1="20" x2="6" y2="14"/>
-            </svg>
-          </div>
-          <div className="stat-info">
-            <span className="stat-value">—</span>
-            <span className="stat-label">Rata-rata Nilai</span>
-          </div>
-        </div>
-      </div>
-
-      <style jsx>{`
-        .dashboard-welcome {
-          margin-bottom: 2rem;
-        }
-
-        .dashboard-welcome h1 {
-          font-size: 1.5rem;
-          font-weight: 700;
-          color: var(--color-text);
-          margin: 0 0 0.25rem;
-        }
-
-        .dashboard-welcome p {
-          color: var(--color-text-secondary);
-          margin: 0;
-        }
-
-        .stats-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 1rem;
-        }
-
-        .stat-card {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          padding: 1.25rem;
-          background: var(--color-surface);
-          border: 1px solid var(--color-border);
-          border-radius: 12px;
-          transition: border-color 0.15s;
-        }
-
-        .stat-card:hover {
-          border-color: var(--color-text-tertiary);
-        }
-
-        .stat-icon {
-          width: 48px;
-          height: 48px;
-          border-radius: 10px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .stat-icon.blue { background: rgba(59, 130, 246, 0.15); color: hsl(217, 91%, 60%); }
-        .stat-icon.green { background: rgba(34, 197, 94, 0.15); color: hsl(142, 71%, 45%); }
-        .stat-icon.purple { background: rgba(168, 85, 247, 0.15); color: hsl(271, 91%, 65%); }
-        .stat-icon.amber { background: rgba(245, 158, 11, 0.15); color: hsl(38, 92%, 50%); }
-
-        .stat-info {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .stat-value {
-          font-size: 1.5rem;
-          font-weight: 700;
-          color: var(--color-text);
-        }
-
-        .stat-label {
-          font-size: 0.8rem;
-          color: var(--color-text-secondary);
-        }
-      `}</style>
+      ))}
     </div>
   );
 }

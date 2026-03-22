@@ -14,9 +14,11 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/kazanaruishere-max/akubelajar/backend/config"
 	"github.com/kazanaruishere-max/akubelajar/backend/internal/academic"
+	"github.com/kazanaruishere-max/akubelajar/backend/internal/admin"
 	"github.com/kazanaruishere-max/akubelajar/backend/internal/assignment"
 	"github.com/kazanaruishere-max/akubelajar/backend/internal/attendance"
 	"github.com/kazanaruishere-max/akubelajar/backend/internal/auth"
+	"github.com/kazanaruishere-max/akubelajar/backend/internal/dashboard"
 	"github.com/kazanaruishere-max/akubelajar/backend/internal/grade"
 	"github.com/kazanaruishere-max/akubelajar/backend/internal/middleware"
 	"github.com/kazanaruishere-max/akubelajar/backend/internal/notification"
@@ -99,6 +101,8 @@ func main() {
 	var gradeHandler *grade.Handler
 	var notifHandler *notification.Handler
 	var uploadHandler *upload.Handler
+	var dashboardHandler *dashboard.Handler
+	var adminHandler *admin.Handler
 	if dbConnected {
 		// Auth
 		authRepo := auth.NewRepository(dbPool)
@@ -148,6 +152,14 @@ func main() {
 		supaStore := storage.NewSupabaseStorage()
 		uploadHandler = upload.NewHandler(supaStore)
 		log.Println("✅ Upload module initialized")
+
+		// Dashboard
+		dashboardHandler = dashboard.NewHandler(dbPool)
+		log.Println("✅ Dashboard module initialized")
+
+		// Admin
+		adminHandler = admin.NewHandler(dbPool, v)
+		log.Println("✅ Admin module initialized")
 	}
 
 	// Setup Gin router
@@ -225,6 +237,16 @@ func main() {
 		// Upload route (all authenticated users)
 		if uploadHandler != nil {
 			upload.RegisterRoutes(v1, uploadHandler, authMW)
+		}
+
+		// Dashboard routes (all authenticated users)
+		if dashboardHandler != nil {
+			dashboard.RegisterRoutes(v1, dashboardHandler, authMW)
+		}
+
+		// Admin user management routes
+		if adminHandler != nil {
+			admin.RegisterRoutes(v1, adminHandler, authMW, adminMW)
 		}
 	}
 

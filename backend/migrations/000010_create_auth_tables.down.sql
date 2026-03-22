@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS active_sessions CASCADE;
+DROP TABLE IF EXISTS password_histories CASCADE;
+DROP TABLE IF EXISTS password_reset_tokens CASCADE;
+DROP TABLE IF EXISTS invite_tokens CASCADE;

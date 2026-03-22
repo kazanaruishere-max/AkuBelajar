@@ -1,0 +1,8 @@
+DROP TABLE IF EXISTS quiz_answers CASCADE;
+DROP TABLE IF EXISTS quiz_sessions CASCADE;
+DROP TABLE IF EXISTS quiz_questions CASCADE;
+DROP TABLE IF EXISTS quizzes CASCADE;
+DROP TYPE IF EXISTS session_status;
+DROP TYPE IF EXISTS review_mode;
+DROP TYPE IF EXISTS question_type;
+DROP TYPE IF EXISTS quiz_status;

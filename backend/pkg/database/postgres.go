@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -18,6 +19,8 @@ func NewPostgresPool(ctx context.Context, dsn string, maxConns int, maxIdleTime 
 	config.MaxConns = int32(maxConns)
 	config.MaxConnIdleTime = maxIdleTime
 	config.MinConns = 2
+	// Disable prepared statement cache for PgBouncer (Supabase) compatibility
+	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {

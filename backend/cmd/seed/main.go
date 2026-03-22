@@ -143,6 +143,44 @@ func main() {
 	}
 	fmt.Println("✅ Classes: 7A, 8A, 9A")
 
+	// 6. Assign students to class 7A
+	studentEmails := []string{
+		"siswa@akubelajar.id",
+		"siswa2@akubelajar.id",
+		"siswa3@akubelajar.id",
+		"siswa4@akubelajar.id",
+		"siswa5@akubelajar.id",
+	}
+	class7A := "d0000000-0000-0000-0000-000000000001"
+	for _, email := range studentEmails {
+		_, err = pool.Exec(ctx, `
+			INSERT INTO student_classes (student_id, class_id, academic_year_id)
+			SELECT u.id, $2, $3 FROM users u WHERE u.email = $1
+			ON CONFLICT DO NOTHING
+		`, email, class7A, ayID)
+		if err != nil {
+			log.Printf("⚠️  student_classes for %s: %v", email, err)
+		}
+	}
+	fmt.Println("✅ Students assigned to class 7A")
+
+	// 7. Assign teacher as subject teacher in class 7A
+	subjectIDs := []string{
+		"c0000000-0000-0000-0000-000000000001", // MTK
+		"c0000000-0000-0000-0000-000000000002", // BIN
+	}
+	for _, subID := range subjectIDs {
+		_, err = pool.Exec(ctx, `
+			INSERT INTO class_subjects (class_id, subject_id, teacher_id)
+			SELECT $1, $2, u.id FROM users u WHERE u.email = 'guru@akubelajar.id'
+			ON CONFLICT DO NOTHING
+		`, class7A, subID)
+		if err != nil {
+			log.Printf("⚠️  class_subjects: %v", err)
+		}
+	}
+	fmt.Println("✅ Teacher assigned to MTK & BIN in class 7A")
+
 	fmt.Println("\n🎉 Seed complete! Login credentials:")
 	fmt.Println("   Admin:  admin@akubelajar.id / Admin@123!")
 	fmt.Println("   Guru:   guru@akubelajar.id  / Guru@123!")

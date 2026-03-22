@@ -15,8 +15,11 @@ import (
 	"github.com/kazanaruishere-max/akubelajar/backend/config"
 	"github.com/kazanaruishere-max/akubelajar/backend/internal/academic"
 	"github.com/kazanaruishere-max/akubelajar/backend/internal/assignment"
+	"github.com/kazanaruishere-max/akubelajar/backend/internal/attendance"
 	"github.com/kazanaruishere-max/akubelajar/backend/internal/auth"
+	"github.com/kazanaruishere-max/akubelajar/backend/internal/grade"
 	"github.com/kazanaruishere-max/akubelajar/backend/internal/middleware"
+	"github.com/kazanaruishere-max/akubelajar/backend/internal/quiz"
 	"github.com/kazanaruishere-max/akubelajar/backend/pkg/cache"
 	"github.com/kazanaruishere-max/akubelajar/backend/pkg/database"
 	"github.com/kazanaruishere-max/akubelajar/backend/pkg/response"
@@ -87,6 +90,9 @@ func main() {
 	var authHandler *auth.Handler
 	var academicHandler *academic.Handler
 	var assignmentHandler *assignment.Handler
+	var quizHandler *quiz.Handler
+	var attendanceHandler *attendance.Handler
+	var gradeHandler *grade.Handler
 	if dbConnected {
 		// Auth
 		authRepo := auth.NewRepository(dbPool)
@@ -104,6 +110,22 @@ func main() {
 		assignmentService := assignment.NewService(assignmentRepo)
 		assignmentHandler = assignment.NewHandler(assignmentService, assignmentRepo, v)
 		log.Println("✅ Assignment module initialized")
+
+		// Quiz
+		quizRepo := quiz.NewRepository(dbPool)
+		quizService := quiz.NewService(quizRepo)
+		quizHandler = quiz.NewHandler(quizService, quizRepo, v)
+		log.Println("✅ Quiz module initialized")
+
+		// Attendance
+		attendanceRepo := attendance.NewRepository(dbPool)
+		attendanceHandler = attendance.NewHandler(attendanceRepo, v)
+		log.Println("✅ Attendance module initialized")
+
+		// Grade
+		gradeRepo := grade.NewRepository(dbPool)
+		gradeHandler = grade.NewHandler(gradeRepo, v)
+		log.Println("✅ Grade module initialized")
 	}
 
 	// Setup Gin router
@@ -156,6 +178,21 @@ func main() {
 		// Assignment routes (teacher + student)
 		if assignmentHandler != nil {
 			assignment.RegisterRoutes(v1, assignmentHandler, authMW, teacherMW, studentMW)
+		}
+
+		// Quiz routes (teacher + student)
+		if quizHandler != nil {
+			quiz.RegisterRoutes(v1, quizHandler, authMW, teacherMW, studentMW)
+		}
+
+		// Attendance routes (teacher + student)
+		if attendanceHandler != nil {
+			attendance.RegisterRoutes(v1, attendanceHandler, authMW, teacherMW, studentMW)
+		}
+
+		// Grade routes (teacher + student)
+		if gradeHandler != nil {
+			grade.RegisterRoutes(v1, gradeHandler, authMW, teacherMW, studentMW)
 		}
 	}
 

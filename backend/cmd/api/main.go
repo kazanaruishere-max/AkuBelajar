@@ -13,10 +13,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/kazanaruishere-max/akubelajar/backend/config"
+	"github.com/kazanaruishere-max/akubelajar/backend/internal/auth"
+	"github.com/kazanaruishere-max/akubelajar/backend/internal/middleware"
 	"github.com/kazanaruishere-max/akubelajar/backend/pkg/cache"
 	"github.com/kazanaruishere-max/akubelajar/backend/pkg/database"
 	"github.com/kazanaruishere-max/akubelajar/backend/pkg/response"
 	"github.com/kazanaruishere-max/akubelajar/backend/pkg/security"
+	"github.com/kazanaruishere-max/akubelajar/backend/pkg/validator"
 )
 
 func main() {
@@ -75,15 +78,22 @@ func main() {
 	}
 	log.Println("✅ Paseto v4 token maker initialized")
 
-	// Suppress unused variable warnings — will be used when handlers are registered
-	_ = dbPool
-	_ = redisClient
-	_ = tokenMaker
+	// Initialize validator
+	v := validator.New()
+
+	// Initialize auth module (only if DB is available)
+	var authHandler *auth.Handler
+	if dbConnected {
+		authRepo := auth.NewRepository(dbPool)
+		authService := auth.NewService(authRepo, tokenMaker, cfg.Paseto.AccessTokenExpiry, cfg.Paseto.RefreshTokenExpiry)
+		authHandler = auth.NewHandler(authService, v)
+		log.Println("✅ Auth module initialized")
+	}
 
 	// Setup Gin router
-	router := gin.Default()
-
-	// CORS middleware
+	router := gin.New()
+	router.Use(gin.Recovery())
+	router.Use(middleware.RequestLogger())
 	router.Use(corsMiddleware(cfg.CORS.AllowOrigin))
 
 	// Health check
@@ -101,15 +111,24 @@ func main() {
 		})
 	})
 
+	// Auth middleware instance
+	authMW := middleware.AuthMiddleware(tokenMaker)
+
 	// API v1 routes
 	v1 := router.Group("/api/v1")
 	{
-		// Auth routes (Sprint 1)
-		_ = v1
+		// Rate limiter: 120 req/min for general API
+		if redisConnected {
+			v1.Use(middleware.RateLimiter(redisClient, 120, time.Minute, "api"))
+		}
 
-		// TODO: Register domain handlers here
-		// auth.RegisterRoutes(v1, authHandler)
-		// academic.RegisterRoutes(v1, academicHandler)
+		// Auth routes
+		if authHandler != nil {
+			auth.RegisterRoutes(v1, authHandler, authMW)
+		}
+
+		// Academic routes (coming in Sprint 1 Week 2)
+		// academic.RegisterRoutes(v1, academicHandler, authMW)
 	}
 
 	// Start server

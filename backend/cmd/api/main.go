@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	"github.com/kazanaruishere-max/akubelajar/backend/config"
 	"github.com/kazanaruishere-max/akubelajar/backend/pkg/cache"
 	"github.com/kazanaruishere-max/akubelajar/backend/pkg/database"
@@ -19,6 +20,9 @@ import (
 )
 
 func main() {
+	// Load .env file (ignore error if not found — production uses real env vars)
+	_ = godotenv.Load()
+
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
@@ -32,20 +36,22 @@ func main() {
 
 	ctx := context.Background()
 
-	// Connect to PostgreSQL
+	// Connect to PostgreSQL (warn if unavailable — server starts in degraded mode)
 	dbPool, err := database.NewPostgresPool(
 		ctx,
 		cfg.Database.DatabaseDSN(),
 		cfg.Database.MaxConns,
 		cfg.Database.MaxIdleTime,
 	)
+	dbConnected := err == nil
 	if err != nil {
-		log.Fatalf("failed to connect to database: %v", err)
+		log.Printf("⚠️  Database unavailable (server will start without DB): %v", err)
+	} else {
+		defer dbPool.Close()
+		log.Println("✅ Connected to PostgreSQL")
 	}
-	defer dbPool.Close()
-	log.Println("✅ Connected to PostgreSQL")
 
-	// Connect to Redis
+	// Connect to Redis (warn if unavailable)
 	redisClient, err := cache.NewRedisClient(
 		ctx,
 		cfg.Redis.URL,
@@ -54,11 +60,13 @@ func main() {
 		cfg.Redis.Password,
 		cfg.Redis.DB,
 	)
+	redisConnected := err == nil
 	if err != nil {
-		log.Fatalf("failed to connect to redis: %v", err)
+		log.Printf("⚠️  Redis unavailable (server will start without cache): %v", err)
+	} else {
+		defer redisClient.Close()
+		log.Println("✅ Connected to Redis")
 	}
-	defer redisClient.Close()
-	log.Println("✅ Connected to Redis")
 
 	// Initialize Paseto token maker
 	tokenMaker, err := security.NewTokenMaker(cfg.Paseto.SymmetricKey)
@@ -80,10 +88,16 @@ func main() {
 
 	// Health check
 	router.GET("/health", func(c *gin.Context) {
+		status := "ok"
+		if !dbConnected || !redisConnected {
+			status = "degraded"
+		}
 		response.OK(c, gin.H{
-			"status":  "ok",
-			"version": "0.1.0",
-			"time":    time.Now().UTC().Format(time.RFC3339),
+			"status":   status,
+			"version":  "0.1.0",
+			"time":     time.Now().UTC().Format(time.RFC3339),
+			"database": dbConnected,
+			"redis":    redisConnected,
 		})
 	})
 

@@ -1,6 +1,7 @@
 -- ============================================================
 -- AkuBelajar - Combined Migration (ALL tables)
 -- Run this in Supabase SQL Editor: Dashboard → SQL Editor → New Query
+-- SAFE TO RE-RUN: Uses IF NOT EXISTS + ALTER TABLE fallbacks
 -- ============================================================
 
 -- ==============================
@@ -49,6 +50,14 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_users_school ON users(school_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(school_id, role) WHERE deleted_at IS NULL;
+
+-- Fallback: if users table existed with old column names
+ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name VARCHAR(200) DEFAULT '';
+-- If 'password' column exists, rename to password_hash
+DO $$ BEGIN
+    ALTER TABLE users RENAME COLUMN password TO password_hash;
+EXCEPTION WHEN undefined_column THEN NULL;
+END $$;
 
 -- ==============================
 -- 000003: User Profiles
@@ -159,6 +168,13 @@ CREATE TABLE IF NOT EXISTS attendances (
 CREATE INDEX IF NOT EXISTS idx_att_class_date ON attendances(class_id, date);
 CREATE INDEX IF NOT EXISTS idx_att_student ON attendances(student_id, date);
 
+-- Fallback: if attendances had 'reason' instead of 'notes'
+DO $$ BEGIN
+    ALTER TABLE attendances RENAME COLUMN reason TO notes;
+EXCEPTION WHEN undefined_column THEN NULL;
+END $$;
+ALTER TYPE attendance_status ADD VALUE IF NOT EXISTS 'excused';
+
 -- ==============================
 -- 000006: Assignments
 -- ==============================
@@ -218,6 +234,12 @@ CREATE TABLE IF NOT EXISTS assignment_submissions (
     updated_at      TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(assignment_id, student_id)
 );
+
+-- Fallback: if 'submissions' table exists from old migration, rename it
+DO $$ BEGIN
+    ALTER TABLE submissions RENAME TO assignment_submissions;
+EXCEPTION WHEN undefined_table THEN NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS submission_files (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -339,6 +361,16 @@ CREATE TABLE IF NOT EXISTS grades (
     UNIQUE(student_id, subject_id, academic_year_id, semester)
 );
 CREATE INDEX IF NOT EXISTS idx_grades_student ON grades(student_id);
+
+-- Fallback: add new columns if grades table existed from old migration
+ALTER TABLE grades ADD COLUMN IF NOT EXISTS class_id UUID REFERENCES classes(id);
+ALTER TABLE grades ADD COLUMN IF NOT EXISTS category VARCHAR(50);
+ALTER TABLE grades ADD COLUMN IF NOT EXISTS score NUMERIC(5,2);
+ALTER TABLE grades ADD COLUMN IF NOT EXISTS weight_pct NUMERIC(5,2) DEFAULT 100;
+ALTER TABLE grades ADD COLUMN IF NOT EXISTS weighted_score NUMERIC(5,2);
+ALTER TABLE grades ADD COLUMN IF NOT EXISTS description VARCHAR(200);
+ALTER TABLE grades ADD COLUMN IF NOT EXISTS teacher_id UUID REFERENCES users(id);
+
 CREATE INDEX IF NOT EXISTS idx_grades_class ON grades(class_id) WHERE class_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS report_cards (
@@ -375,6 +407,13 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 CREATE INDEX IF NOT EXISTS idx_notif_user_unread ON notifications(user_id, is_read) WHERE is_read = FALSE;
 CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, created_at DESC);
+
+-- Fallback: if notifications had 'body' instead of 'message'
+DO $$ BEGIN
+    ALTER TABLE notifications RENAME COLUMN body TO message;
+EXCEPTION WHEN undefined_column THEN NULL;
+END $$;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS link VARCHAR(500) DEFAULT '';
 
 CREATE TABLE IF NOT EXISTS notification_preferences (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),

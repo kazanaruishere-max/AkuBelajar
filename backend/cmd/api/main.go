@@ -13,6 +13,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/kazanaruishere-max/akubelajar/backend/config"
+	"github.com/kazanaruishere-max/akubelajar/backend/internal/academic"
+	"github.com/kazanaruishere-max/akubelajar/backend/internal/assignment"
 	"github.com/kazanaruishere-max/akubelajar/backend/internal/auth"
 	"github.com/kazanaruishere-max/akubelajar/backend/internal/middleware"
 	"github.com/kazanaruishere-max/akubelajar/backend/pkg/cache"
@@ -81,13 +83,27 @@ func main() {
 	// Initialize validator
 	v := validator.New()
 
-	// Initialize auth module (only if DB is available)
+	// Initialize modules (only if DB is available)
 	var authHandler *auth.Handler
+	var academicHandler *academic.Handler
+	var assignmentHandler *assignment.Handler
 	if dbConnected {
+		// Auth
 		authRepo := auth.NewRepository(dbPool)
 		authService := auth.NewService(authRepo, tokenMaker, cfg.Paseto.AccessTokenExpiry, cfg.Paseto.RefreshTokenExpiry)
 		authHandler = auth.NewHandler(authService, v)
 		log.Println("✅ Auth module initialized")
+
+		// Academic
+		academicRepo := academic.NewRepository(dbPool)
+		academicHandler = academic.NewHandler(academicRepo, v)
+		log.Println("✅ Academic module initialized")
+
+		// Assignment
+		assignmentRepo := assignment.NewRepository(dbPool)
+		assignmentService := assignment.NewService(assignmentRepo)
+		assignmentHandler = assignment.NewHandler(assignmentService, assignmentRepo, v)
+		log.Println("✅ Assignment module initialized")
 	}
 
 	// Setup Gin router
@@ -122,13 +138,25 @@ func main() {
 			v1.Use(middleware.RateLimiter(redisClient, 120, time.Minute, "api"))
 		}
 
+		// RBAC middleware
+		adminMW := middleware.RequireRole("super_admin")
+		teacherMW := middleware.RequireRole("super_admin", "teacher")
+		studentMW := middleware.RequireRole("student", "class_leader")
+
 		// Auth routes
 		if authHandler != nil {
 			auth.RegisterRoutes(v1, authHandler, authMW)
 		}
 
-		// Academic routes (coming in Sprint 1 Week 2)
-		// academic.RegisterRoutes(v1, academicHandler, authMW)
+		// Academic routes (admin only)
+		if academicHandler != nil {
+			academic.RegisterRoutes(v1, academicHandler, authMW, adminMW)
+		}
+
+		// Assignment routes (teacher + student)
+		if assignmentHandler != nil {
+			assignment.RegisterRoutes(v1, assignmentHandler, authMW, teacherMW, studentMW)
+		}
 	}
 
 	// Start server

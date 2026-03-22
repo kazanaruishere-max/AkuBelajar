@@ -24,7 +24,7 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 // FindUserByEmail looks up a user by email address.
 func (r *Repository) FindUserByEmail(ctx context.Context, email string) (*User, error) {
 	query := `
-		SELECT u.id, u.school_id, u.email, u.password, u.role,
+		SELECT u.id, u.school_id, u.email, u.password_hash, u.role,
 		       u.is_active, u.is_first_login, u.failed_login_count,
 		       u.locked_until, u.last_login_at, u.last_login_ip,
 		       u.created_at, u.updated_at
@@ -50,7 +50,7 @@ func (r *Repository) FindUserByEmail(ctx context.Context, email string) (*User, 
 // FindUserByID looks up a user by ID.
 func (r *Repository) FindUserByID(ctx context.Context, userID string) (*User, error) {
 	query := `
-		SELECT u.id, u.school_id, u.email, u.password, u.role,
+		SELECT u.id, u.school_id, u.email, u.password_hash, u.role,
 		       u.is_active, u.is_first_login, u.failed_login_count,
 		       u.locked_until, u.last_login_at, u.last_login_ip,
 		       u.created_at, u.updated_at
@@ -206,7 +206,7 @@ func (r *Repository) UpdatePassword(ctx context.Context, userID, newHash string)
 
 	// Update user password and clear first_login flag
 	_, err = tx.Exec(ctx,
-		"UPDATE users SET password = $2, is_first_login = FALSE, updated_at = NOW() WHERE id = $1",
+		"UPDATE users SET password_hash = $2, is_first_login = FALSE, updated_at = NOW() WHERE id = $1",
 		userID, newHash,
 	)
 	if err != nil {

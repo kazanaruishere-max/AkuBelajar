@@ -69,7 +69,7 @@ func main() {
 		}
 
 		_, err = pool.Exec(ctx, `
-			INSERT INTO users (school_id, email, password, role, is_active, is_first_login)
+			INSERT INTO users (school_id, email, password_hash, role, is_active, is_first_login)
 			VALUES ($1, $2, $3, $4::user_role, TRUE, TRUE)
 			ON CONFLICT (email) DO NOTHING
 		`, schoolID, u.Email, hash, u.Role)

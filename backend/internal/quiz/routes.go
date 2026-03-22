@@ -16,6 +16,7 @@ func RegisterRoutes(rg *gin.RouterGroup, h *Handler, authMW, teacherMW, studentM
 		teacher.POST("/:id/questions", h.AddQuestion)
 		teacher.GET("/:id/questions", h.ListQuestions)
 		teacher.GET("/:id/sessions", h.ListSessions)
+		teacher.POST("/:id/ai-generate", h.GenerateAIQuestions)
 	}
 
 	student := q.Group("/student")

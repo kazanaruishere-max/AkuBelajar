@@ -19,11 +19,15 @@ import (
 	"github.com/kazanaruishere-max/akubelajar/backend/internal/auth"
 	"github.com/kazanaruishere-max/akubelajar/backend/internal/grade"
 	"github.com/kazanaruishere-max/akubelajar/backend/internal/middleware"
+	"github.com/kazanaruishere-max/akubelajar/backend/internal/notification"
 	"github.com/kazanaruishere-max/akubelajar/backend/internal/quiz"
+	"github.com/kazanaruishere-max/akubelajar/backend/internal/upload"
+	"github.com/kazanaruishere-max/akubelajar/backend/pkg/ai"
 	"github.com/kazanaruishere-max/akubelajar/backend/pkg/cache"
 	"github.com/kazanaruishere-max/akubelajar/backend/pkg/database"
 	"github.com/kazanaruishere-max/akubelajar/backend/pkg/response"
 	"github.com/kazanaruishere-max/akubelajar/backend/pkg/security"
+	"github.com/kazanaruishere-max/akubelajar/backend/pkg/storage"
 	"github.com/kazanaruishere-max/akubelajar/backend/pkg/validator"
 )
 
@@ -93,6 +97,8 @@ func main() {
 	var quizHandler *quiz.Handler
 	var attendanceHandler *attendance.Handler
 	var gradeHandler *grade.Handler
+	var notifHandler *notification.Handler
+	var uploadHandler *upload.Handler
 	if dbConnected {
 		// Auth
 		authRepo := auth.NewRepository(dbPool)
@@ -114,7 +120,13 @@ func main() {
 		// Quiz
 		quizRepo := quiz.NewRepository(dbPool)
 		quizService := quiz.NewService(quizRepo)
-		quizHandler = quiz.NewHandler(quizService, quizRepo, v)
+		geminiClient := ai.NewGeminiClient()
+		var quizAISvc *quiz.AIService
+		if geminiClient.IsAvailable() {
+			quizAISvc = quiz.NewAIService(geminiClient, quizRepo)
+			log.Println("✅ AI Quiz service initialized")
+		}
+		quizHandler = quiz.NewHandler(quizService, quizRepo, quizAISvc, v)
 		log.Println("✅ Quiz module initialized")
 
 		// Attendance
@@ -126,6 +138,16 @@ func main() {
 		gradeRepo := grade.NewRepository(dbPool)
 		gradeHandler = grade.NewHandler(gradeRepo, v)
 		log.Println("✅ Grade module initialized")
+
+		// Notification
+		notifRepo := notification.NewRepository(dbPool)
+		notifHandler = notification.NewHandler(notifRepo, v)
+		log.Println("✅ Notification module initialized")
+
+		// Upload
+		supaStore := storage.NewSupabaseStorage()
+		uploadHandler = upload.NewHandler(supaStore)
+		log.Println("✅ Upload module initialized")
 	}
 
 	// Setup Gin router
@@ -193,6 +215,16 @@ func main() {
 		// Grade routes (teacher + student)
 		if gradeHandler != nil {
 			grade.RegisterRoutes(v1, gradeHandler, authMW, teacherMW, studentMW)
+		}
+
+		// Notification routes (all authenticated users)
+		if notifHandler != nil {
+			notification.RegisterRoutes(v1, notifHandler, authMW, teacherMW)
+		}
+
+		// Upload route (all authenticated users)
+		if uploadHandler != nil {
+			upload.RegisterRoutes(v1, uploadHandler, authMW)
 		}
 	}
 

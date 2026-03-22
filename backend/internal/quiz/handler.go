@@ -2,6 +2,7 @@ package quiz
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/kazanaruishere-max/akubelajar/backend/pkg/response"
@@ -11,11 +12,26 @@ import (
 type Handler struct {
 	service   *Service
 	repo      *Repository
+	aiService *AIService
 	validator *validator.Validator
 }
 
-func NewHandler(service *Service, repo *Repository, v *validator.Validator) *Handler {
-	return &Handler{service: service, repo: repo, validator: v}
+func NewHandler(service *Service, repo *Repository, aiSvc *AIService, v *validator.Validator) *Handler {
+	return &Handler{service: service, repo: repo, aiService: aiSvc, validator: v}
+}
+
+// GenerateAIQuestions generates quiz questions using AI.
+func (h *Handler) GenerateAIQuestions(c *gin.Context) {
+	if h.aiService == nil {
+		response.BadRequest(c, "QUIZ_020", "AI service tidak tersedia")
+		return
+	}
+	var req GenerateQuestionsRequest
+	if err := c.ShouldBindJSON(&req); err != nil { response.BadRequest(c, "QUIZ_001", "Format request tidak valid"); return }
+	if errs := h.validator.ValidateStruct(req); errs != nil { response.BadRequestWithDetails(c, "QUIZ_002", "Validasi gagal", errs); return }
+	count, err := h.aiService.GenerateQuestions(c.Request.Context(), req)
+	if err != nil { response.InternalError(c, "QUIZ_021", "Gagal generate soal AI: "+err.Error()); return }
+	response.Created(c, gin.H{"generated": count, "message": fmt.Sprintf("%d soal berhasil di-generate", count)})
 }
 
 func uid(c *gin.Context) string { v, _ := c.Get("user_id"); return v.(string) }

@@ -39,7 +39,7 @@ sequenceDiagram
     participant Siswa
     participant FE as Next.js
     participant API as Go Backend
-    participant MinIO
+    participant Storage as Supabase Storage
 
     Siswa->>FE: Buka /student/assignments/:id
     FE->>API: GET /assignments/:id
@@ -47,23 +47,57 @@ sequenceDiagram
     Siswa->>FE: Download materi (jika ada)
     FE->>API: GET signed URL
     API-->>FE: Signed URL (TTL 15 min)
-    FE->>MinIO: Download file
+    FE->>Storage: Download file
 
-    Siswa->>FE: Upload submission files
+    alt Upload dari file
+        Siswa->>FE: Pilih file dari device
+    else Foto dari kamera
+        Siswa->>FE: Tap "📷 Foto Tugas"
+        FE->>FE: Buka kamera (rear, NO MIRROR)
+        Siswa->>FE: Jepret → preview → confirm
+        FE->>FE: Compress (canvas API, JPEG 80%)
+    end
+
     FE->>API: Request presigned upload URL
     API-->>FE: Presigned PUT URL (TTL 5 min)
-    FE->>MinIO: Upload file langsung
+    FE->>Storage: Upload file langsung
     FE->>API: POST /assignments/:id/submissions
     API->>API: Validate + rename file
     API-->>FE: 201 Created (is_late, status)
+```
+
+### 📷 Camera Capture (Mobile)
+
+| Parameter | Nilai |
+|:---|:---|
+| Default kamera | **Belakang** (`facingMode: 'environment'`) |
+| Mirror preview | **TIDAK** — `transform: none` (agar teks terbaca) |
+| Toggle kamera | Ya, user bisa switch depan/belakang |
+| Hasil foto | Selalu **non-mirror** |
+| Compress sebelum upload | Ya — Canvas API → JPEG quality 80% |
+| Max resolusi | 2048 × 2048px (resize jika lebih besar) |
+| Fallback | Upload dari galeri jika kamera error/ditolak |
+
+```typescript
+// Camera constraints
+const stream = await navigator.mediaDevices.getUserMedia({
+  video: {
+    facingMode: 'environment', // kamera belakang
+    width: { ideal: 2048 },
+    height: { ideal: 2048 },
+  }
+});
+
+// PENTING: Jangan mirror preview!
+// CSS: video.camera-preview { transform: none; }
 ```
 
 ### Upload Rules
 
 | Parameter | Nilai |
 |:---|:---|
-| Max files per submission | 3 |
-| Max size per file | 20MB |
+| Max files per submission | 5 (naik dari 3, karena bisa multi-foto) |
+| Max size per file | 20MB (file), 5MB (foto hasil kamera) |
 | Format yang diterima | PDF, DOCX, PPTX, XLSX, JPG, PNG, ZIP |
 | Rename otomatis | `{student_id}_{assignment_id}_{timestamp}.ext` |
 | Status setelah submit | `SUBMITTED` |
@@ -121,4 +155,4 @@ flowchart TD
 
 ---
 
-*Terakhir diperbarui: 21 Maret 2026*
+*Terakhir diperbarui: 22 Maret 2026*

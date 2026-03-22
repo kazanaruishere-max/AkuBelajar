@@ -25,7 +25,7 @@
 | Fullscreen Mode | ✅ | `display: standalone` di manifest |
 | Splash Screen | ✅ | Custom splash dengan logo |
 | Background Sync | ✅ | Sync data saat kembali online |
-| Kamera | ⚠️ | Via `getUserMedia` (terbatas) |
+| Kamera | ✅ | Via `getUserMedia` — foto tugas + QR scan |
 | File System | ⚠️ | Via File System Access API |
 | Biometric Auth | ❌ | Tidak tersedia di web |
 
@@ -96,6 +96,73 @@ packages/
 
 ---
 
+## Camera API (PWA)
+
+### Foto Tugas (Submit Assignment)
+
+```typescript
+// Camera constraints — kamera belakang, TIDAK mirror
+const stream = await navigator.mediaDevices.getUserMedia({
+  video: {
+    facingMode: 'environment', // rear camera (default)
+    width: { ideal: 2048 },
+    height: { ideal: 2048 },
+  }
+});
+
+// PENTING: CSS preview TIDAK boleh mirror
+// video.camera-preview { transform: none; }
+
+// Compress sebelum upload (hemat kuota siswa)
+async function compressPhoto(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise(resolve => {
+    canvas.toBlob(blob => resolve(blob!), 'image/jpeg', 0.8);
+  });
+}
+```
+
+| Rule | Nilai |
+|:---|:---|
+| Default kamera | **Belakang** (`environment`) |
+| Mirror preview | **TIDAK** — `transform: none` |
+| Toggle kamera | Ya, user bisa switch depan/belakang |
+| Compress | Canvas API → JPEG quality 80% |
+| Max resolusi | 2048 × 2048px |
+| Max size | 5MB per foto (setelah compress) |
+| Fallback | Upload dari galeri jika kamera ditolak/error |
+
+### QR Scan Absensi
+
+```typescript
+import { Html5QrcodeScanner } from 'html5-qrcode';
+
+const scanner = new Html5QrcodeScanner('reader', {
+  fps: 10,
+  qrbox: { width: 250, height: 250 },
+  // PENTING: rear camera, TIDAK mirror
+  videoConstraints: {
+    facingMode: 'environment'
+  }
+});
+
+scanner.render(
+  (decodedText) => {
+    // POST /attendance/qr/scan { token: decodedText }
+    scanner.clear(); // auto-close setelah scan
+  },
+  (errorMessage) => { /* ignore scan errors */ }
+);
+```
+
+| Rule | Nilai |
+|:---|:---|
+| Library | `html5-qrcode` (~50KB) |
+| Mirror | **TIDAK** |
+| Auto-close | Ya, setelah scan berhasil |
+| Permission denied | Tampilkan panduan + fallback manual |
+
+---
+
 ## Testing di Mobile
 
 | Tipe | Tool | Coverage Target |
@@ -115,4 +182,4 @@ packages/
 
 ---
 
-*Terakhir diperbarui: 21 Maret 2026*
+*Terakhir diperbarui: 22 Maret 2026*

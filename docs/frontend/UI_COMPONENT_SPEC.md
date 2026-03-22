@@ -128,6 +128,8 @@
 | `DatePicker` | Input + Calendar Popover | Date selection |
 | `TimePicker` | Input + TimeDial | Time selection |
 | `FileUpload` | DropZone + ProgressBar + FileList | Upload files |
+| `CameraCapture` | Video + ShutterBtn + Preview + Toggle | 📷 Foto tugas (NO MIRROR, rear default) |
+| `QRScanner` | Video + Overlay + html5-qrcode | 📱 Scan QR absensi (NO MIRROR) |
 | `Toast` | Icon + Message + CloseButton | Notifications |
 | `Modal` | Overlay + Card + Actions | Dialogs |
 | `ConfirmDialog` | Modal + Warning text + Cancel/Confirm | Destructive confirmations |
@@ -206,4 +208,4 @@
 
 ---
 
-*Terakhir diperbarui: 21 Maret 2026*
+*Terakhir diperbarui: 22 Maret 2026*

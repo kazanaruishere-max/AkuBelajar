@@ -47,6 +47,8 @@
 |:---|:---|:---|:---|
 | Guru buat tugas | 🔴 P0 | 2 | |
 | Siswa submit tugas (file) | 🔴 P0 | 2 | |
+| 📷 Foto tugas dari kamera | 🔴 P0 | 2 | No-mirror, kamera belakang default |
+| 🖼️ Upload dari galeri | 🔴 P0 | 2 | Alternatif jika kamera error |
 | Guru beri nilai + feedback | 🔴 P0 | 2 | |
 | Deadline enforcement | 🔴 P0 | 2 | Late = rejected |
 | Resubmit (jika guru allow) | 🟡 P1 | 5 | |
@@ -68,6 +70,7 @@
 | Fitur | Priority | Sprint | Notes |
 |:---|:---|:---|:---|
 | Guru input absensi | 🔴 P0 | 3 | |
+| 📱 QR scan absensi (siswa) | 🟡 P1 | 4 | QR rotate 30 detik, fallback manual |
 | Ketua Kelas input draft | 🟡 P1 | 4 | Perlu approval guru |
 | Izin/sakit dengan lampiran | 🟡 P1 | 5 | File upload |
 | Dashboard attendance rate | 🟡 P1 | 5 | |
@@ -120,4 +123,4 @@
 
 ---
 
-*Terakhir diperbarui: 21 Maret 2026*
+*Terakhir diperbarui: 22 Maret 2026*

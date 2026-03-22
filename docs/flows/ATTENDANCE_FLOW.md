@@ -35,6 +35,55 @@ flowchart TD
 
 ---
 
+## 1b. QR Code Absensi (🟡 P1 — Sprint 4)
+
+```mermaid
+sequenceDiagram
+    participant Guru
+    participant API as Go Backend
+    participant Redis
+    participant Siswa
+
+    Guru->>API: POST /attendance/:classId/qr/generate
+    API->>API: Generate QR token (class_id + date + random)
+    API->>Redis: SET qr_token (TTL 30 detik)
+    API-->>Guru: QR code image (base64)
+    
+    Note over Guru: Tampilkan QR di layar/proyektor
+    Note over Guru: QR auto-refresh setiap 30 detik
+
+    Siswa->>Siswa: Buka kamera → scan QR
+    Siswa->>API: POST /attendance/qr/scan {token}
+    API->>Redis: Validate token (belum expired?)
+    alt Token valid
+        API->>API: Mark siswa HADIR
+        API-->>Siswa: ✅ Berhasil! Hadir 09:01
+    else Token expired / invalid
+        API-->>Siswa: ❌ QR tidak valid, minta guru refresh
+    end
+```
+
+### QR Anti-Cheat
+
+| Mekanisme | Detail |
+|:---|:---|
+| QR rotate | Berubah setiap **30 detik** — mencegah screenshot sharing |
+| TTL pendek | Token expire di Redis setelah 30 detik |
+| 1 scan per siswa | Siswa hanya bisa scan 1× per sesi absensi |
+| Validasi kelas | Siswa harus terdaftar di kelas yang bersangkutan |
+| Fallback | Guru tetap bisa input manual jika QR bermasalah |
+
+### Camera untuk QR Scan
+
+| Parameter | Nilai |
+|:---|:---|
+| Library | `html5-qrcode` (~50KB, free) |
+| Default kamera | **Belakang** (`facingMode: 'environment'`) |
+| Mirror | **TIDAK** — `transform: none` |
+| Auto-close | Kamera mati otomatis setelah scan berhasil |
+
+---
+
 ## 2. Input Absensi oleh Ketua Kelas
 
 ```mermaid
@@ -118,4 +167,4 @@ Persentase = (present + permission + sick + late) / total_hari × 100%
 
 ---
 
-*Terakhir diperbarui: 21 Maret 2026*
+*Terakhir diperbarui: 22 Maret 2026*
